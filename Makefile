@@ -33,5 +33,9 @@ validate: fmt vet lint test vulncheck
 clean:
 	rm -rf bin/
 
-rulesync-install:
+rulesync-env-install:
 	curl -sL -H "Authorization: token $$(gh auth token)" https://raw.githubusercontent.com/artschekoff/golang-rules/refs/heads/main/scripts/install.sh | sh
+
+rulesync-install:
+	cp commands/*.md .rulesync/commands/
+	rulesync generate --targets cursor --features "*"
