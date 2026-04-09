@@ -39,3 +39,7 @@ rulesync-env-install:
 rulesync-install:
 	cp commands/*.md .rulesync/commands/
 	rulesync generate --targets cursor --features "*"
+
+install-here:
+	rulesync fetch artschekoff/jira-mcp --features rules,commands --token "$$(gh auth token)"
+	rulesync generate --targets cursor --features "*"
