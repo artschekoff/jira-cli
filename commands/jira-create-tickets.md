@@ -25,30 +25,39 @@ Run these **in parallel**:
 
 1. **Issue types** — `jira_project_view` with `key: $PROJECT`. Extract available issue types (e.g. `Task`, `Story`, `Epic`, `Bug`, `Subtask`). Use only what the project exposes.
 
-2. **Custom field discovery** — `jira_search` with:
-   - `jql: "project = $PROJECT ORDER BY updated DESC"`
-   - `fields: "*all"`
-   - `limit: 1`
-
-   Parse the response to build a **field catalogue**: for every field key that is not a core field (`summary`, `description`, `status`, `assignee`, `issuetype`, `project`, `labels`, `parent`, `creator`, `reporter`, `created`, `updated`, `comment`, `attachment`, `watches`, `votes`), record:
-   - `key` — the field key (e.g. `customfield_10016`, `components`, `priority`, `fixVersions`, `versions`)
-   - `name` — the human label (e.g. `Story Points`, `Components`, `Priority`, `Sprint`)
-   - `currentValue` — the value from that sample issue (helps infer the value format)
+2. **Custom field discovery** — two sequential calls (search only returns a limited field set):
+   1. `jira_search` with `jql: "project = $PROJECT ORDER BY updated DESC"`, `limit: 1` — get the key of the most recent issue (e.g. `JH-123`).
+   2. `jira_view` with `key: $RECENT_KEY`, `fields: "*all"` — parse the full response to build a **field catalogue**: for every field that is not a core field (`summary`, `description`, `status`, `assignee`, `issuetype`, `project`, `labels`, `creator`, `reporter`, `created`, `updated`, `comment`, `attachment`, `watches`, `votes`), record:
+      - `key` — the field key (e.g. `customfield_10016`, `components`, `priority`, `fixVersions`)
+      - `name` — the human label (e.g. `Story Points`, `Components`, `Priority`, `Sprint`)
+      - `currentValue` — value from that issue (helps infer format for the payload)
 
 3. **Parent validation** — if the user's request mentions a parent/epic (e.g. "under JH-42"), `jira_view` with `key: $PARENT_KEY`, `fields: "key,summary,issuetype"` to confirm it exists.
 
-**Known field key mappings** (common across Jira Cloud):
+**acli `additionalAttributes` value formats** (from `acli jira workitem create --generate-json`):
 
-| User term | Field key | Value format |
+acli uses its own flat JSON shape — NOT the Jira REST API `{"fields":{}}` format. Custom fields go inside `additionalAttributes`. Value types:
+
+| Field type | Format in `additionalAttributes` |
+|---|---|
+| Option / single-select | `{"value": "Option Name"}` |
+| Object / named entity (priority, components, etc.) | `{"name": "High"}` or `[{"name": "Backend"}]` |
+| Number (story points, etc.) | bare number, e.g. `5` |
+| String / text | bare string, e.g. `"v1.2"` |
+| Multi-select | `[{"value": "A"}, {"value": "B"}]` |
+
+**Common field key → format reference:**
+
+| User term | Key in `additionalAttributes` | Example value |
 |---|---|---|
-| priority | `priority` | `{"name": "High"}` / `{"name": "Medium"}` / `{"name": "Low"}` |
-| component / components | `components` | `[{"name": "Backend"}]` |
-| fix version / version | `fixVersions` | `[{"name": "v1.2"}]` |
-| story points / points / SP | `customfield_10016` | number, e.g. `5` |
-| sprint | `customfield_10020` | `[{"id": N}]` — resolve sprint name → ID first |
-| epic link | `customfield_10014` | `"JH-42"` (string key) |
+| priority | `priority` | `{"name": "High"}` |
+| component(s) | `components` | `[{"name": "Backend"}]` |
+| fix version | `fixVersions` | `[{"name": "v1.2"}]` |
+| story points / SP | `customfield_10016` | `5` |
+| sprint | `customfield_10020` | `[{"id": 42}]` — resolve name → ID first |
+| epic link | `customfield_10014` | `"JH-42"` |
 
-If a field key is not in the table above, use the key from the discovered catalogue.
+If a field key is not in the table above, use the key from the discovered catalogue and infer the format from the `currentValue` seen in `jira_view`.
 
 ## Step 4: Match request to fields
 
@@ -120,14 +129,14 @@ Build the call:
   jira_create(project, type, summary, description?, parent?, assignee?, labels?)
   ```
 
-- If **any custom fields** were collected → pass `custom_fields` as a JSON object in addition to top-level params:
+- If **any custom fields** were collected → pass `custom_fields` as a JSON object (`additionalAttributes` values, acli flat format — NOT Jira REST `{"fields":{}}`):
   ```
   jira_create(
     project, type, summary, description?, parent?, assignee?, labels?,
-    custom_fields: "{\"components\":[{\"name\":\"Backend\"}], \"priority\":{\"name\":\"High\"}, ...}"
+    custom_fields: "{\"priority\":{\"name\":\"High\"}, \"components\":[{\"name\":\"Backend\"}], \"customfield_10016\":5}"
   )
   ```
-  `assignee` is always a top-level param (even in custom-field mode) — `@me` only works as a CLI flag, not inside JSON.
+  `description` and `assignee` are always top-level params — description because the JSON payload requires ADF but the CLI flag accepts plain text; `@me` only works as a CLI flag.
 
 On success → print: `✅ Created $KEY — $SUMMARY` with link `https://junahealth.atlassian.net/browse/$KEY`.
 

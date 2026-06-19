@@ -99,39 +99,35 @@ func (h *WorkitemHandlers) HandleCreate(ctx context.Context, req mcp.CallToolReq
 	return h.run(ctx, eventCreate, []string{"jira", "workitem", "create"}, flags)
 }
 
-// handleCreateJSON builds a Jira API JSON payload and uses --from-json so
-// custom fields (components, priority, sprint, story-points, etc.) can be set
-// in a single create call.
+// handleCreateJSON uses acli's --from-json path so custom fields can be set at
+// creation time. The acli JSON format (from --generate-json) is a flat object
+// with top-level keys (summary, projectKey, type, parentIssueId, labels, …)
+// and an "additionalAttributes" map for every non-standard field.
 func (h *WorkitemHandlers) handleCreateJSON(ctx context.Context, req mcp.CallToolRequest, customFieldsJSON string) (*mcp.CallToolResult, error) {
-	var custom map[string]any
-	if err := json.Unmarshal([]byte(customFieldsJSON), &custom); err != nil {
-		return mcp.NewToolResultError("custom_fields must be valid JSON object: " + err.Error()), nil
+	var additionalAttrs map[string]any
+	if err := json.Unmarshal([]byte(customFieldsJSON), &additionalAttrs); err != nil {
+		return mcp.NewToolResultError("custom_fields must be a valid JSON object: " + err.Error()), nil
 	}
 
-	fields := map[string]any{
-		"summary":   req.GetString("summary", ""),
-		"project":   map[string]string{"key": req.GetString("project", "")},
-		"issuetype": map[string]string{"name": req.GetString("type", "")},
-	}
-	if desc := req.GetString("description", ""); desc != "" {
-		fields["description"] = desc
+	// acli flat format — NOT the Jira REST API {"fields":{}} shape.
+	payload := map[string]any{
+		"summary":              req.GetString("summary", ""),
+		"projectKey":           req.GetString("project", ""),
+		"type":                 req.GetString("type", ""),
+		"additionalAttributes": additionalAttrs,
 	}
 	if parent := req.GetString("parent", ""); parent != "" {
-		fields["parent"] = map[string]string{"key": parent}
+		payload["parentIssueId"] = parent
 	}
 	if labels := req.GetString("labels", ""); labels != "" {
 		parts := strings.Split(labels, ",")
 		for i, p := range parts {
 			parts[i] = strings.TrimSpace(p)
 		}
-		fields["labels"] = parts
-	}
-	// Merge caller-supplied custom fields; they override standard fields if keys clash.
-	for k, v := range custom {
-		fields[k] = v
+		payload["labels"] = parts
 	}
 
-	payload, err := json.Marshal(map[string]any{"fields": fields})
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return mcp.NewToolResultError("failed to serialize work item: " + err.Error()), nil
 	}
@@ -142,14 +138,19 @@ func (h *WorkitemHandlers) handleCreateJSON(ctx context.Context, req mcp.CallToo
 	}
 	defer os.Remove(tmp.Name())
 
-	if _, err := tmp.Write(payload); err != nil {
+	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		return mcp.NewToolResultError("failed to write temp file: " + err.Error()), nil
 	}
 	tmp.Close()
 
+	// description and assignee are passed as CLI flags alongside --from-json:
+	// description because acli accepts plain text there (JSON requires ADF);
+	// assignee because "@me" is a CLI-only shorthand, not valid inside JSON.
 	flags := []string{"--from-json", tmp.Name(), "--json"}
-	// --assignee @me is a CLI-only shorthand not understood inside JSON; pass as flag.
+	if desc := req.GetString("description", ""); desc != "" {
+		flags = append(flags, "--description", desc)
+	}
 	if assignee := req.GetString("assignee", ""); assignee != "" {
 		flags = append(flags, "--assignee", assignee)
 	}
