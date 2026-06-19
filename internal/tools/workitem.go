@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -71,6 +72,10 @@ func (h *WorkitemHandlers) HandleCreate(ctx context.Context, req mcp.CallToolReq
 		return r, nil
 	}
 
+	if cf := req.GetString("custom_fields", ""); cf != "" {
+		return h.handleCreateJSON(ctx, req, cf)
+	}
+
 	flags := []string{
 		"--summary", req.GetString("summary", ""),
 		"--project", req.GetString("project", ""),
@@ -91,6 +96,63 @@ func (h *WorkitemHandlers) HandleCreate(ctx context.Context, req mcp.CallToolReq
 		flags = append(flags, "--parent", parent)
 	}
 
+	return h.run(ctx, eventCreate, []string{"jira", "workitem", "create"}, flags)
+}
+
+// handleCreateJSON builds a Jira API JSON payload and uses --from-json so
+// custom fields (components, priority, sprint, story-points, etc.) can be set
+// in a single create call.
+func (h *WorkitemHandlers) handleCreateJSON(ctx context.Context, req mcp.CallToolRequest, customFieldsJSON string) (*mcp.CallToolResult, error) {
+	var custom map[string]any
+	if err := json.Unmarshal([]byte(customFieldsJSON), &custom); err != nil {
+		return mcp.NewToolResultError("custom_fields must be valid JSON object: " + err.Error()), nil
+	}
+
+	fields := map[string]any{
+		"summary":   req.GetString("summary", ""),
+		"project":   map[string]string{"key": req.GetString("project", "")},
+		"issuetype": map[string]string{"name": req.GetString("type", "")},
+	}
+	if desc := req.GetString("description", ""); desc != "" {
+		fields["description"] = desc
+	}
+	if parent := req.GetString("parent", ""); parent != "" {
+		fields["parent"] = map[string]string{"key": parent}
+	}
+	if labels := req.GetString("labels", ""); labels != "" {
+		parts := strings.Split(labels, ",")
+		for i, p := range parts {
+			parts[i] = strings.TrimSpace(p)
+		}
+		fields["labels"] = parts
+	}
+	// Merge caller-supplied custom fields; they override standard fields if keys clash.
+	for k, v := range custom {
+		fields[k] = v
+	}
+
+	payload, err := json.Marshal(map[string]any{"fields": fields})
+	if err != nil {
+		return mcp.NewToolResultError("failed to serialize work item: " + err.Error()), nil
+	}
+
+	tmp, err := os.CreateTemp("", "jira-create-*.json")
+	if err != nil {
+		return mcp.NewToolResultError("failed to create temp file: " + err.Error()), nil
+	}
+	defer os.Remove(tmp.Name())
+
+	if _, err := tmp.Write(payload); err != nil {
+		tmp.Close()
+		return mcp.NewToolResultError("failed to write temp file: " + err.Error()), nil
+	}
+	tmp.Close()
+
+	flags := []string{"--from-json", tmp.Name(), "--json"}
+	// --assignee @me is a CLI-only shorthand not understood inside JSON; pass as flag.
+	if assignee := req.GetString("assignee", ""); assignee != "" {
+		flags = append(flags, "--assignee", assignee)
+	}
 	return h.run(ctx, eventCreate, []string{"jira", "workitem", "create"}, flags)
 }
 

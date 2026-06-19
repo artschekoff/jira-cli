@@ -85,6 +85,9 @@ func RegisterAll(s *server.MCPServer, runner *acli.Runner, logger *zap.Logger) {
 			mcp.WithString("parent",
 				mcp.Description("Parent work item key for sub-tasks, e.g. 'PROJ-10'."),
 			),
+			mcp.WithString("custom_fields",
+				mcp.Description("JSON object of custom field key→value pairs to set at creation time, e.g. '{\"components\":[{\"name\":\"Backend\"}],\"priority\":{\"name\":\"High\"},\"customfield_10016\":5}'. Triggers the --from-json code path so any Jira field is reachable."),
+			),
 		),
 		wi.HandleCreate,
 	)

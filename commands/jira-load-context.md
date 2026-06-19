@@ -1,5 +1,5 @@
 ---
-name: load-jira-context
+name: jira-load-context
 author: artschekoff
 description: "Load Jira issue context (description, comments, subtasks) via Jira MCP server"
 targets: ["*"]
