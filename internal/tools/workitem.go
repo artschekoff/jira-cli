@@ -110,14 +110,19 @@ func (h *WorkitemHandlers) handleCreateJSON(ctx context.Context, req mcp.CallToo
 	}
 
 	// acli flat format — NOT the Jira REST API {"fields":{}} shape.
+	// Next-gen Jira epics: parent must be in additionalAttributes as {"key":"JH-123"},
+	// not parentIssueId (ignored) and not --parent alongside --from-json.
+	if parent := req.GetString("parent", ""); parent != "" {
+		if _, exists := additionalAttrs["parent"]; !exists {
+			additionalAttrs["parent"] = map[string]string{"key": parent}
+		}
+	}
+
 	payload := map[string]any{
 		"summary":              req.GetString("summary", ""),
 		"projectKey":           req.GetString("project", ""),
 		"type":                 req.GetString("type", ""),
 		"additionalAttributes": additionalAttrs,
-	}
-	if parent := req.GetString("parent", ""); parent != "" {
-		payload["parentIssueId"] = parent
 	}
 	if labels := req.GetString("labels", ""); labels != "" {
 		parts := strings.Split(labels, ",")
