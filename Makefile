@@ -1,14 +1,14 @@
 .PHONY: build install run test lint fmt vet vulncheck validate clean rulesync-install
 
-BIN := bin/jira-mcp
-CMD := ./cmd/jira-mcp
+BIN := bin/jira-cli
+CMD := ./cmd/jira-cli
 INSTALL_DIR := /usr/local/bin
 
 build:
 	go build -o $(BIN) $(CMD)
 
 install: build
-	sudo install -m 755 $(BIN) $(INSTALL_DIR)/jira-mcp
+	sudo install -m 755 $(BIN) $(INSTALL_DIR)/jira-cli
 
 run:
 	go run $(CMD)
