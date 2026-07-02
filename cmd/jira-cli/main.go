@@ -40,6 +40,7 @@ Prerequisites:
 		newTransitionCmd(),
 		newAssignCmd(),
 		newCommentCmd(),
+		newSprintCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
