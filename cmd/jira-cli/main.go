@@ -33,6 +33,13 @@ Prerequisites:
 
 	root.AddCommand(
 		newAuthCmd(),
+		newSearchCmd(),
+		newViewCmd(),
+		newCreateCmd(),
+		newEditCmd(),
+		newTransitionCmd(),
+		newAssignCmd(),
+		newCommentCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
