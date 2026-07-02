@@ -41,5 +41,5 @@ rulesync-install:
 	rulesync generate --targets cursor --features "*"
 
 install-here:
-	rulesync fetch artschekoff/jira-mcp --features rules,commands --token "$$(gh auth token)"
+	rulesync fetch artschekoff/jira-cli --features rules,commands --token "$$(gh auth token)"
 	rulesync generate --targets cursor --features "*"
