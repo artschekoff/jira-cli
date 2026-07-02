@@ -225,6 +225,9 @@ Examples:
   jira-cli edit PROJ-1,PROJ-2,PROJ-3 --type Task`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if summary == "" && description == "" && assignee == "" && labels == "" && issueType == "" {
+				return fmt.Errorf("at least one of --summary, --description, --assignee, --labels, --type is required")
+			}
 			flags := []string{"--key", args[0], "--yes", "--json"}
 			if summary != "" {
 				flags = append(flags, "--summary", summary)
