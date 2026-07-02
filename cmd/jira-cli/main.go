@@ -41,6 +41,8 @@ Prerequisites:
 		newAssignCmd(),
 		newCommentCmd(),
 		newSprintCmd(),
+		newProjectCmd(),
+		newBoardCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
