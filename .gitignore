@@ -115,3 +115,4 @@ rulesync.local.jsonc
 **/.agents/skills/
 **/.warp/
 **/WARP.md
+jira-cli
