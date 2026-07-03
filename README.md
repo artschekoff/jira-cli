@@ -18,7 +18,8 @@ Requires Go 1.23+.
 Install and authenticate the [Atlassian CLI](https://www.atlassian.com/software/acli):
 
 ```bash
-acli jira auth login
+acli --version         # confirm installed
+jira-cli auth login    # interactive: site, email, API token
 ```
 
 Verify:
@@ -35,6 +36,8 @@ All commands print JSON to stdout. Errors go to stderr with exit code 1.
 
 | Command | Description |
 |---------|-------------|
+| `jira-cli auth login` | Log in via acli (interactive prompt) |
+| `jira-cli auth logout` | Clear acli credentials |
 | `jira-cli auth status` | Check acli authentication status |
 
 ### Work Items

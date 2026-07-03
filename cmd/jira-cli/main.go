@@ -62,3 +62,9 @@ func runCmd(subCmd []string, flags []string) error {
 	}
 	return nil
 }
+
+// runCmdInteractive executes an acli subcommand with the parent's tty attached.
+// Use for commands that prompt the user (e.g. auth login).
+func runCmdInteractive(subCmd []string, flags []string) error {
+	return runner.RunInteractive(context.Background(), subCmd, flags)
+}
