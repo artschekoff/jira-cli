@@ -48,6 +48,7 @@ Example:
 }
 
 func newAuthLogoutCmd() *cobra.Command {
+	// ponytail: same path as login, one helper covers both
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Log out of Jira via acli",
