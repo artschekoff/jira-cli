@@ -35,3 +35,33 @@ func TestRunner_Timeout(t *testing.T) {
 	_, err := r.Run(context.Background(), []string{"jira", "workitem", "search"}, []string{"10"})
 	require.Error(t, err)
 }
+
+func TestRunner_AllowedAuthSubcommands(t *testing.T) {
+	logger := zap.NewNop()
+	r := NewRunner(logger, WithBinPath("echo"), WithTimeout(5*time.Second))
+
+	for _, path := range [][]string{
+		{"jira", "auth", "login"},
+		{"jira", "auth", "logout"},
+	} {
+		out, err := r.Run(context.Background(), path, nil)
+		require.NoError(t, err, "path=%v", path)
+		assert.Contains(t, out, "jira auth")
+	}
+}
+
+func TestRunner_RunInteractive_Allowed(t *testing.T) {
+	logger := zap.NewNop()
+	// "true" always exits 0 and reads no stdin, safe for a headless test.
+	r := NewRunner(logger, WithBinPath("true"))
+	err := r.RunInteractive(context.Background(), []string{"jira", "auth", "login"}, nil)
+	require.NoError(t, err)
+}
+
+func TestRunner_RunInteractive_Disallowed(t *testing.T) {
+	logger := zap.NewNop()
+	r := NewRunner(logger)
+	err := r.RunInteractive(context.Background(), []string{"jira", "workitem", "delete"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not in the allowed list")
+}

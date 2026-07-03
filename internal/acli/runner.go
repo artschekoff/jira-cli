@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -36,6 +37,8 @@ var allowedSubcmds = map[string]bool{
 	"jira project view":            true,
 	"jira board search":            true,
 	"jira board list-sprints":      true,
+	"jira auth login":              true,
+	"jira auth logout":             true,
 	"jira auth status":             true,
 }
 
@@ -111,4 +114,33 @@ func (r *Runner) Run(ctx context.Context, subCmdPath []string, flags []string) (
 	}
 
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+// RunInteractive executes an acli subcommand attached to the parent process's
+// stdin/stdout/stderr. Use this for commands that prompt the user (e.g.
+// "jira auth login"). No timeout is applied — the human sets the pace via ctx.
+//
+// The allowlist is enforced the same way as Run.
+func (r *Runner) RunInteractive(ctx context.Context, subCmdPath []string, flags []string) error {
+	key := strings.Join(subCmdPath, " ")
+	if !allowedSubcmds[key] {
+		return fmt.Errorf("acli subcommand %q is not in the allowed list", key)
+	}
+
+	args := append(subCmdPath, flags...) //nolint:gocritic
+	cmd := exec.CommandContext(ctx, r.binPath, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	r.logger.Debug("acli exec (interactive)", zap.String("cmd", key), zap.Strings("flags", flags))
+
+	if err := cmd.Run(); err != nil {
+		r.logger.Error("acli exec failed",
+			zap.String("cmd", key),
+			zap.Error(err),
+		)
+		return fmt.Errorf("acli %s: %w", key, err)
+	}
+	return nil
 }
