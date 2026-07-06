@@ -1,7 +1,5 @@
 ---
-name: jira-create-tickets
-author: artschekoff
-description: "Create Jira work items via Jira MCP — fast path with template cloning, required-field enforcement, minimal discovery"
+description: 'Create Jira work items via Jira MCP — fast path with template cloning, required-field enforcement, minimal discovery'
 targets: ["*"]
 ---
 
