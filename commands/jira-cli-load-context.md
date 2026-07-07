@@ -1,15 +1,19 @@
 ---
-description: 'Load Jira issue context (description, comments, subtasks) via Jira MCP server'
+description: 'Load Jira issue context (description, comments, subtasks) via jira-cli'
 targets: ["*"]
 ---
 
 # Load Jira Context
 
-All MCP calls use `server: "user-jira"`. Only read tool descriptors from `mcps/` if a call fails with an argument error.
+All calls use `jira-cli` (JSON on stdout, errors on stderr). Pipe to `jq` to extract fields.
 
 ## Step 1: Verify auth
 
-`jira_auth_status` (no args). Not authenticated → "Jira CLI not authenticated. Run `acli jira auth` first." → stop.
+```bash
+jira-cli auth status
+```
+
+Not authenticated → "jira-cli not authenticated. Run `jira-cli auth login` first." → stop.
 
 ## Step 2: Ask for the issue
 
@@ -37,7 +41,10 @@ AskQuestion — **Time range:**
 
 ### 2c–2d: Search & choose
 
-`jira_search` with `jql: "text ~ \"$PHRASE\" $DATE_CLAUSE ORDER BY updated DESC"`, `fields: "key,summary,status,assignee"`, `limit: 15`.
+```bash
+jira-cli search --jql "text ~ \"$PHRASE\" $DATE_CLAUSE ORDER BY updated DESC" \
+  --fields "key,summary,status,assignee" --limit 15
+```
 
 Zero results → report, loop to Step 2. Otherwise AskQuestion: one option per issue (`$KEY — $SUMMARY ($STATUS)`), plus `Refine search...` → loop to 2c.
 
@@ -45,12 +52,14 @@ Zero results → report, loop to Step 2. Otherwise AskQuestion: one option per i
 
 For a given `$KEY`, fetch two things sequentially:
 
-1. `jira_view` — `key: $KEY`, `fields: "key,issuetype,summary,status,assignee,description"`. Fail → report error, stop.
-2. `jira_comment_list` — `key: $KEY`, `order: "asc"`. Extract comments (author + body).
+1. `jira-cli view $KEY --fields "key,issuetype,summary,status,assignee,description"`. Fail → report error, stop.
+2. `jira-cli comment list $KEY --order asc`. Extract comments (author + body).
 
 ## Step 4: Fetch subtasks
 
-`jira_search` with `jql: "parent = $ISSUE_KEY"`, `fields: "key,summary,status,assignee"`.
+```bash
+jira-cli search --jql "parent = $ISSUE_KEY" --fields "key,summary,status,assignee"
+```
 
 For each subtask, run Step 3 sequentially (avoid rate-limiting). Skip if none.
 
@@ -88,6 +97,6 @@ $DESCRIPTION
 
 ## Error Handling
 
-- **Auth failed** → "Run `acli jira auth` to authenticate."
+- **Auth failed** → "Run `jira-cli auth login` to authenticate."
 - **Issue not found** → report to user.
-- **MCP server not running** → "Jira MCP server is not running. Check Cursor Settings → MCP."
+- **Command not found** → "jira-cli is not installed or not on PATH."
