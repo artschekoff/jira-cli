@@ -1,4 +1,5 @@
 ---
+name: jira-cli-create-tickets
 description: 'Create Jira work items via jira-cli — fast path with template cloning, required-field enforcement, minimal discovery'
 targets: ["*"]
 ---

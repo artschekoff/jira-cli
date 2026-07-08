@@ -1,4 +1,5 @@
 ---
+name: jira-cli-load-context
 description: 'Load Jira issue context (description, comments, subtasks) via jira-cli'
 targets: ["*"]
 ---

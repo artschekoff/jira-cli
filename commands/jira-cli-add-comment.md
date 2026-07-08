@@ -1,4 +1,5 @@
 ---
+name: jira-cli-add-comment
 description: 'Add a comment to a Jira issue via jira-cli'
 targets: ["*"]
 ---

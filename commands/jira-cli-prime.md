@@ -1,4 +1,5 @@
 ---
+name: jira-cli-prime
 description: 'Prime the agent with jira-cli usage — the CLI wrapper around acli that returns JSON on stdout'
 targets: ["*"]
 ---
