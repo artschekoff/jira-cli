@@ -54,6 +54,7 @@ Zero results → report, loop to Step 2. Otherwise AskQuestion: one option per i
 For a given `$KEY`, fetch two things sequentially:
 
 1. `jira-cli view $KEY --fields "key,issuetype,summary,status,assignee,description"`. Fail → report error, stop.
+   - Need custom fields too? Use `--fields '*all'` to pull every field (incl. `customfield_*`): `jira-cli view $KEY --fields '*all'`.
 2. `jira-cli comment list $KEY --order asc`. Extract comments (author + body).
 
 ## Step 4: Fetch subtasks

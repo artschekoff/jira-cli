@@ -71,12 +71,14 @@ Examples:
   jira-cli view PROJ-123 --fields summary,status,assignee,description,comments`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// acli takes the key as a positional arg for workitem view
-			flags := []string{"--json"}
+			// acli takes the key as a positional arg for workitem view, but it
+			// must sit outside the allowlisted subcommand prefix (which is
+			// matched by exact join), so pass it in the args, not subCmdPath.
+			flags := []string{args[0], "--json"}
 			if fields != "" {
 				flags = append(flags, "--fields", fields)
 			}
-			return runCmd([]string{"jira", "workitem", "view", args[0]}, flags)
+			return runCmd([]string{"jira", "workitem", "view"}, flags)
 		},
 	}
 	cmd.Flags().StringVar(&fields, "fields", "", `comma-separated fields to return; use "*all" for all`)
