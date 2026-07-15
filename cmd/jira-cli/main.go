@@ -10,6 +10,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// version is injected at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 // ponytail: package-level runner; CLI is single-command, no concurrency concern
 var runner *acli.Runner
 
@@ -27,6 +30,7 @@ Prerequisites:
   1. Install acli: https://www.atlassian.com/software/acli
   2. Authenticate:  acli jira auth login
   3. Verify:        jira-cli auth status`,
+		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
