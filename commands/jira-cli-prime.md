@@ -20,7 +20,7 @@ jira-cli auth logout
 
 ```bash
 jira-cli search --jql '<JQL>'                                 # JSON array
-jira-cli view <KEY> [--fields summary,status,assignee,...]    # JSON object
+jira-cli view <KEY> [--fields summary,status,assignee,...]    # JSON object; --fields '*all' for every field incl. customfield_*
 jira-cli create --summary <s> --project <p> --type <t> \
   [--assignee <u>] [--custom-fields '<JSON>']                 # returns created issue
 jira-cli edit <KEY> [--summary ...] [--custom-fields ...]
