@@ -326,9 +326,21 @@ func newCommentCmd() *cobra.Command {
 
 func newCommentAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <KEY> --body <text>",
+		Use:   "add <KEY> --body <text> | --adf-file <path>",
 		Short: "Add a comment to a work item",
-		Long: `Add a plain-text comment to a Jira work item.
+		Long: `Add a comment to a Jira work item.
+
+Two mutually exclusive input modes:
+  --body       plain text. Renders as-is. Jira wiki markup (h2., ||table||,
+               * bullets) is NOT interpreted — it appears literally. Use only
+               for unformatted text.
+  --adf-file   path to a JSON file in Atlassian Document Format (ADF). This is
+               the only reliable way to get rendered headings, bold, bullet
+               lists, tables, etc. acli's "comment create" can't apply ADF, so
+               this posts a stub comment then updates it with --body-adf.
+
+ADF reference: https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/
+Preview ADF:  https://developer.atlassian.com/cloud/jira/platform/apis/document/viewer/
 
 Output: JSON object of the created comment:
   - id       string  comment ID
@@ -336,21 +348,99 @@ Output: JSON object of the created comment:
   - body     string  comment text
   - created  string  ISO 8601 timestamp
 
-Example:
-  jira-cli comment add PROJ-123 --body "Looking into this now"`,
+Examples:
+  jira-cli comment add PROJ-123 --body "Looking into this now"
+  jira-cli comment add PROJ-123 --adf-file /tmp/comment.adf.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			body, _ := cmd.Flags().GetString("body")
-			if body == "" {
-				return fmt.Errorf("--body is required")
+			adfFile, _ := cmd.Flags().GetString("adf-file")
+
+			if (body == "") == (adfFile == "") {
+				return fmt.Errorf("provide exactly one of --body or --adf-file")
+			}
+			if adfFile != "" {
+				return addCommentADF(args[0], adfFile)
 			}
 			return runCmd([]string{"jira", "workitem", "comment", "create"}, []string{
 				"--key", args[0], "--body", body, "--json",
 			})
 		},
 	}
-	cmd.Flags().String("body", "", "comment text (required)")
+	cmd.Flags().String("body", "", "plain-text comment (no wiki/markdown rendering)")
+	cmd.Flags().String("adf-file", "", "path to an ADF JSON file for a formatted comment")
 	return cmd
+}
+
+// addCommentADF posts a formatted comment via ADF. acli's "comment create" has
+// no --body-adf flag and mangles ADF passed to --body/--body-file, so the only
+// reliable path is: create a stub, then "comment update --body-adf" it.
+// ponytail: on update failure the stub comment remains; we surface its ID
+// rather than adding a delete path (comment delete isn't in the allowlist).
+func addCommentADF(key, adfFile string) error {
+	if err := validateADF(adfFile); err != nil {
+		return err
+	}
+
+	out, err := runner.Run(context.Background(),
+		[]string{"jira", "workitem", "comment", "create"},
+		[]string{"--key", key, "--body", "(posting formatted comment…)", "--json"})
+	if err != nil {
+		return err
+	}
+	id, err := parseCommentID(out)
+	if err != nil {
+		return fmt.Errorf("could not read new comment ID from acli output: %w", err)
+	}
+
+	updated, err := runner.Run(context.Background(),
+		[]string{"jira", "workitem", "comment", "update"},
+		[]string{"--key", key, "--id", id, "--body-adf", adfFile, "--json"})
+	if err != nil {
+		return fmt.Errorf("stub comment %s created but ADF update failed: %w", id, err)
+	}
+	if updated != "" {
+		fmt.Println(updated)
+	}
+	return nil
+}
+
+// validateADF checks that path holds a well-formed ADF document, so we fail
+// before creating an orphan stub comment.
+func validateADF(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading ADF file: %w", err)
+	}
+	var doc struct {
+		Type    string `json:"type"`
+		Version int    `json:"version"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("ADF file is not valid JSON: %w", err)
+	}
+	if doc.Type != "doc" || doc.Version == 0 {
+		return fmt.Errorf(`ADF file must be a document: expected {"version":1,"type":"doc",...}`)
+	}
+	return nil
+}
+
+// parseCommentID extracts the comment ID from acli "comment create --json"
+// output, tolerating either a bare object or a single-element array.
+func parseCommentID(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	type comment struct {
+		ID string `json:"id"`
+	}
+	var one comment
+	if err := json.Unmarshal([]byte(raw), &one); err == nil && one.ID != "" {
+		return one.ID, nil
+	}
+	var many []comment
+	if err := json.Unmarshal([]byte(raw), &many); err == nil && len(many) > 0 && many[0].ID != "" {
+		return many[0].ID, nil
+	}
+	return "", fmt.Errorf("no comment id in output: %s", raw)
 }
 
 func newCommentListCmd() *cobra.Command {
