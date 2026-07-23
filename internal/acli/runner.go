@@ -29,6 +29,7 @@ var allowedSubcmds = map[string]bool{
 	"jira workitem transition":     true,
 	"jira workitem assign":         true,
 	"jira workitem comment create": true,
+	"jira workitem comment update": true,
 	"jira workitem comment list":   true,
 	"jira sprint view":             true,
 	"jira sprint list-workitems":   true,
